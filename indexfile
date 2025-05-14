@@ -1,0 +1,6 @@
+2. .env – For environment config
+ 3. config/db.js – DB Connection Setup
+  4. models/SalesRecord.js – Mongoose Schema
+   5. controllers/salesController.js – Business Logic
+    6. routes/salesRoutes.js – API Routes
+     7. server.js – App Entry Point
