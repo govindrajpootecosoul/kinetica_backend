@@ -10,26 +10,34 @@ exports.uploadInventoryHealth = async (req, res) => {
     const data = xlsx.utils.sheet_to_json(sheet);
 
     const formatted = data.map(row => ({
-      SKU: row["SKU"],
+      Date: formatDate(row["Date"]),
       Country: row["Country"],
+      SKU: row["SKU"],
+      Product_Category: row["Product Category"],
+      Product_Name: row["Product Name"],
+      Product_COGS: row["Product CoGS"],
+      Type: row["Type"],
+      WH_Stock_Value: Number(row["WH_Stock_Value"] || 0),
+      Sellable_Stock_Value: Number(row["Sellable_Stock_Value"] || 0),
       afn_warehouse_quantity: Number(row["afn-warehouse-quantity"] || 0),
       afn_fulfillable_quantity: Number(row["afn-fulfillable-quantity"] || 0),
       afn_unsellable_quantity: Number(row["afn-unsellable-quantity"] || 0),
       afn_reserved_quantity: Number(row["afn-reserved-quantity"] || 0),
       afn_total_quantity: Number(row["afn-total-quantity"] || 0),
-      afn_inbound_working_quantity: Number(row["afn-inbound-working-quantity"] || 0),
-      afn_inbound_shipped_quantity: Number(row["afn-inbound-shipped-quantity"] || 0),
-      afn_inbound_receiving_quantity: Number(row["afn-inbound-receiving-quantity"] || 0),
-      afn_researching_quantity: Number(row["afn-researching-quantity"] || 0),
-      afn_reserved_future_supply: Number(row["afn-reserved-future-supply"] || 0),
-      afn_future_supply_buyable: Number(row["afn-future-supply-buyable"] || 0),
       Amazon_Reserved: Number(row["Amazon Reserved"] || 0),
       Customer_reserved: Number(row["Customer_reserved"] || 0),
       FC_Transfer: Number(row["FC_Transfer"] || 0),
       FC_Processing: Number(row["FC_Processing"] || 0),
-      Date: formatDate(row["Date"]),
-      healthy_inventory_level: row["healthy-inventory-level"],
       days_of_supply: Number(row["days-of-supply"] || 0),
+      Days_In_Stock: Number(row["Days_In_Stock"] || 0),
+      Total_Days: Number(row["Total_Days"] || 0),
+      InStock_Rate: Number(row["InStock_Rate"] || 0),
+      InStock_Rate_Percent: Number(row["InStock_Rate_Percent"] || 0),
+      Last_30_Days_Unit_Sold: Number(row["Last_30_Days_Unit_Sold"] || 0),
+      Avg_Unit_Sold_Qty: Number(row["Avg_Unit_Sold_Qty"] || 0),
+      MTQ_overstock: Number(row["MTQ_overstock"] || 0),
+      MTQ_understock: Number(row["MTQ_understock"] || 0),
+      Stock_Status: row["Stock_Status"],
       inv_age_0_to_30_days: Number(row["inv-age-0-to-30-days"] || 0),
       inv_age_31_to_60_days: Number(row["inv-age-31-to-60-days"] || 0),
       inv_age_61_to_90_days: Number(row["inv-age-61-to-90-days"] || 0),
@@ -41,26 +49,103 @@ exports.uploadInventoryHealth = async (req, res) => {
       units_shipped_t30: Number(row["units-shipped-t30"] || 0),
       units_shipped_t60: Number(row["units-shipped-t60"] || 0),
       units_shipped_t90: Number(row["units-shipped-t90"] || 0),
-      recommended_action: row["recommended-action"],
-      estimated_cost_savings_of_recommended_actions: Number(row["estimated-cost-savings-of-recommended-actions"] || 0),
       estimated_storage_cost_next_month: Number(row["estimated-storage-cost-next-month"] || 0),
-      estimated_ais_331_365_days: Number(row["estimated-ais-331-365-days"] || 0),
-      estimated_ais_365_plus_days: Number(row["estimated-ais-365-plus-days"] || 0),
       quantity_to_be_charged_ais_241_270_days: Number(row["quantity-to-be-charged-ais-241-270-days"] || 0),
       estimated_ais_241_270_days: Number(row["estimated-ais-241-270-days"] || 0),
       quantity_to_be_charged_ais_271_300_days: Number(row["quantity-to-be-charged-ais-271-300-days"] || 0),
       estimated_ais_271_300_days: Number(row["estimated-ais-271-300-days"] || 0),
       quantity_to_be_charged_ais_301_330_days: Number(row["quantity-to-be-charged-ais-301-330-days"] || 0),
       estimated_ais_301_330_days: Number(row["estimated-ais-301-330-days"] || 0),
+      estimated_cost_savings_of_recommended_actions: Number(row["estimated-cost-savings-of-recommended-actions"] || 0),
+      estimated_ais_331_365_days: Number(row["estimated-ais-331-365-days"] || 0),
+      estimated_ais_365_plus_days: Number(row["estimated-ais-365-plus-days"] || 0),
     }));
 
+    // Clear old data
+    await InventoryHealth.deleteMany({});
+
+    // Insert new data
     await InventoryHealth.insertMany(formatted);
+
+    // Clean up the uploaded file
     fs.unlinkSync(filePath);
-    res.status(200).json({ message: "Inventory health uploaded successfully" });
+
+    res.status(200).json({ message: "Inventory health uploaded successfully", data: formatted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+
+// exports.uploadInventoryHealth = async (req, res) => {
+//   try {
+//     const filePath = req.file.path;
+//     const workbook = xlsx.readFile(filePath);
+//     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+//     const data = xlsx.utils.sheet_to_json(sheet);
+
+//     const formatted = data.map(row => ({
+//       SKU: row["SKU"],
+//       Country: row["Country"],
+//       afn_warehouse_quantity: Number(row["afn-warehouse-quantity"] || 0),
+//       afn_fulfillable_quantity: Number(row["afn-fulfillable-quantity"] || 0),
+//       afn_unsellable_quantity: Number(row["afn-unsellable-quantity"] || 0),
+//       afn_reserved_quantity: Number(row["afn-reserved-quantity"] || 0),
+//       afn_total_quantity: Number(row["afn-total-quantity"] || 0),
+//       afn_inbound_working_quantity: Number(row["afn-inbound-working-quantity"] || 0),
+//       afn_inbound_shipped_quantity: Number(row["afn-inbound-shipped-quantity"] || 0),
+//       afn_inbound_receiving_quantity: Number(row["afn-inbound-receiving-quantity"] || 0),
+//       afn_researching_quantity: Number(row["afn-researching-quantity"] || 0),
+//       afn_reserved_future_supply: Number(row["afn-reserved-future-supply"] || 0),
+//       afn_future_supply_buyable: Number(row["afn-future-supply-buyable"] || 0),
+//       Amazon_Reserved: Number(row["Amazon Reserved"] || 0),
+//       Customer_reserved: Number(row["Customer_reserved"] || 0),
+//       FC_Transfer: Number(row["FC_Transfer"] || 0),
+//       FC_Processing: Number(row["FC_Processing"] || 0),
+//       Date: formatDate(row["Date"]),
+//       healthy_inventory_level: row["healthy-inventory-level"],
+//       days_of_supply: Number(row["days-of-supply"] || 0),
+//       inv_age_0_to_30_days: Number(row["inv-age-0-to-30-days"] || 0),
+//       inv_age_31_to_60_days: Number(row["inv-age-31-to-60-days"] || 0),
+//       inv_age_61_to_90_days: Number(row["inv-age-61-to-90-days"] || 0),
+//       inv_age_91_to_180_days: Number(row["inv-age-91-to-180-days"] || 0),
+//       inv_age_181_to_270_days: Number(row["inv-age-181-to-270-days"] || 0),
+//       inv_age_271_to_365_days: Number(row["inv-age-271-to-365-days"] || 0),
+//       inv_age_365_plus_days: Number(row["inv-age-365-plus-days"] || 0),
+//       units_shipped_t7: Number(row["units-shipped-t7"] || 0),
+//       units_shipped_t30: Number(row["units-shipped-t30"] || 0),
+//       units_shipped_t60: Number(row["units-shipped-t60"] || 0),
+//       units_shipped_t90: Number(row["units-shipped-t90"] || 0),
+//       recommended_action: row["recommended-action"],
+//       estimated_cost_savings_of_recommended_actions: Number(row["estimated-cost-savings-of-recommended-actions"] || 0),
+//       estimated_storage_cost_next_month: Number(row["estimated-storage-cost-next-month"] || 0),
+//       estimated_ais_331_365_days: Number(row["estimated-ais-331-365-days"] || 0),
+//       estimated_ais_365_plus_days: Number(row["estimated-ais-365-plus-days"] || 0),
+//       quantity_to_be_charged_ais_241_270_days: Number(row["quantity-to-be-charged-ais-241-270-days"] || 0),
+//       estimated_ais_241_270_days: Number(row["estimated-ais-241-270-days"] || 0),
+//       quantity_to_be_charged_ais_271_300_days: Number(row["quantity-to-be-charged-ais-271-300-days"] || 0),
+//       estimated_ais_271_300_days: Number(row["estimated-ais-271-300-days"] || 0),
+//       quantity_to_be_charged_ais_301_330_days: Number(row["quantity-to-be-charged-ais-301-330-days"] || 0),
+//       estimated_ais_301_330_days: Number(row["estimated-ais-301-330-days"] || 0),
+//       Days_In_Stock: Number(row["Days_In_Stock"] || 0),
+//       Total_Days: Number(row["Total_Days"] || 0),
+//       InStock_Rate: Number(row["InStock_Rate"] || 0),
+//       InStock_Rate_Percent: Number(row["InStock_Rate_Percent"] || 0),
+//       Last_30_Days_Unit_Sold: Number(row["Last_30_Days_Unit_Sold"] || 0),
+//       Avg_Unit_Sold_Qty: Number(row["Avg_Unit_Sold_Qty"] || 0),
+//       MTQ: Number(row["MTQ"] || 0),
+//        Stock_Status: row["Stock_Status"],
+//     }));
+
+//     await InventoryHealth.insertMany(formatted);
+//     fs.unlinkSync(filePath);
+//     res.status(200).json({ message: "Inventory health uploaded successfully" });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 // function formatDate(dateVal) {
 //   const d = new Date(dateVal);
@@ -102,6 +187,28 @@ exports.getInventoryHealth = async (req, res) => {
 
     const data = await InventoryHealth.find(filter);
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//const InventoryHealth = require("../models/InventoryHealth");
+
+exports.getWHStockSumByCategory = async (req, res) => {
+  try {
+    const result = await InventoryHealth.aggregate([
+      {
+        $group: {
+          _id: "$Product_Category",
+          WH_Stock_Value: { $sum: "$WH_Stock_Value" },
+        }
+      },
+      {
+        $sort: { WH_Stock_Value: -1 }
+      }
+    ]);
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

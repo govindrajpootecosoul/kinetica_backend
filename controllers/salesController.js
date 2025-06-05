@@ -63,96 +63,6 @@ exports.uploadExcel = async (req, res) => {
 };
 
 
-
-
-/// for sales  sku list 
-//  exports.getSales = async (req, res) => {
-//   try {
-//     const { sku, filterType, fromDate, toDate } = req.query;
-
-//     const query = {};
-
-//     const today = new Date();
-//     let startDate, endDate;
-
-//     switch (filterType) {
-//       case "today":
-//         startDate = new Date(today.setHours(0, 0, 0, 0));
-//         endDate = new Date(today.setHours(23, 59, 59, 999));
-//         break;
-
-//       case "week":
-//         const day = today.getDay();
-//         startDate = new Date(today);
-//         startDate.setDate(today.getDate() - day); // Start of week (Sunday)
-//         startDate.setHours(0, 0, 0, 0);
-//         endDate = new Date(); // Now
-//         break;
-
-//       case "lastmonth":
-//         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-//         startDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
-//         endDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0, 23, 59, 59, 999);
-//         break;
-
-//       case "year":
-//         startDate = new Date(today.getFullYear(), 0, 1);
-//         endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-//         break;
-
-//       case "custom":
-//         if (fromDate && toDate) {
-//           startDate = new Date(fromDate);
-//           endDate = new Date(toDate);
-//         }
-//         break;
-//     }
-
-//     if (startDate && endDate) {
-//       query.purchaseDate = { $gte: startDate, $lte: endDate };
-//     }
-
-//     if (sku) {
-//       query.SKU = { $in: sku.split(",").map(s => s.trim()) };
-//     }
-
-//     const records = await SalesRecord.find(query);
-
-//     if (!records.length) {
-//       return res.status(404).json({ message: "No records found." });
-//     }
-
-//     // Group and summarize by SKU
-//     const grouped = records.reduce((acc, record) => {
-//       const SKU = record.SKU;
-//       const quantity = Number(record.quantity) || 0;
-//       const totalSales = Number(record.totalSales) || 0;
-
-//       if (acc[SKU]) {
-//         acc[SKU].totalQuantity += quantity;
-//         acc[SKU].totalSales += totalSales;
-//       } else {
-//         acc[SKU] = {
-//           SKU,
-//           totalQuantity: quantity,
-//           totalSales: totalSales,
-//           records: [record]
-//         };
-//       }
-
-//       return acc;
-//     }, {});
-
-//     res.json(Object.values(grouped));
-//   } catch (error) {
-//     console.error("API error:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-
-
-
 exports.getSales = async (req, res) => {
   try {
     const { sku, filterType, fromDate, toDate } = req.query;
@@ -161,6 +71,7 @@ exports.getSales = async (req, res) => {
     const today = new Date();
     let startDate, endDate;
 
+    // Handle filterType
     switch (filterType) {
       case "today":
         startDate = new Date(today.setHours(0, 0, 0, 0));
@@ -173,10 +84,12 @@ exports.getSales = async (req, res) => {
         startDate.setDate(today.getDate() - day);
         startDate.setHours(0, 0, 0, 0);
         endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
         break;
 
       case "lastmonth":
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  
         startDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
         endDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0, 23, 59, 59, 999);
         break;
@@ -190,6 +103,7 @@ exports.getSales = async (req, res) => {
         if (fromDate && toDate) {
           startDate = new Date(fromDate);
           endDate = new Date(toDate);
+          endDate.setHours(23, 59, 59, 999);
         }
         break;
 
@@ -207,14 +121,11 @@ exports.getSales = async (req, res) => {
         endDate.setHours(23, 59, 59, 999);
         break;
 
-        case "yeartodate":
-          startDate = new Date(today.getFullYear(), 0, 1); // Jan 1st of current year
-          startDate.setHours(0, 0, 0, 0);
-        
-          endDate = new Date(); // Current date
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        
+      case "yeartodate":
+        startDate = new Date(today.getFullYear(), 0, 1);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+        break;
 
       case "6months":
         startDate = new Date(today.getFullYear(), today.getMonth() - 5, 1);
@@ -222,6 +133,7 @@ exports.getSales = async (req, res) => {
         break;
     }
 
+    // Add date and SKU filter
     if (startDate && endDate) {
       query.purchaseDate = { $gte: startDate, $lte: endDate };
     }
@@ -236,28 +148,38 @@ exports.getSales = async (req, res) => {
       return res.status(404).json({ message: "No records found." });
     }
 
-    const grouped = records.reduce((acc, record) => {
+    // Group and format response
+    const result = {};
+
+    records.forEach(record => {
       const SKU = record.SKU;
       const quantity = Number(record.quantity) || 0;
       const totalSales = Number(record.totalSales) || 0;
-      
 
-      if (acc[SKU]) {
-        acc[SKU].totalQuantity += quantity;
-        acc[SKU].totalSales += totalSales;
-      } else {
-        acc[SKU] = {
-          SKU,
-          totalQuantity: quantity,
-          totalSales: totalSales,
-          records: [record]
+      if (!result[SKU]) {
+        result[SKU] = {
+          SKU: SKU,
+          totalQuantity: 0,
+          totalSales: 0,
+          purchaseDate: record.purchaseDate,
+          asin: record.asin,
+          productName: record.productName,
+          monthYear: record.monthYear,
+          pincodeNew: record.pincodeNew,
+          averageUnitPriceAmount: Number(record.averageUnitPriceAmount),
+          cityX: record.cityX,
+          stateX: record.stateX,
+          city: record.city,
+          state: record.state,
+          country: record.country
         };
       }
 
-      return acc;
-    }, {});
+      result[SKU].totalQuantity += quantity;
+      result[SKU].totalSales += totalSales;
+    });
 
-    res.json(Object.values(grouped));
+    res.json(Object.values(result));
   } catch (error) {
     console.error("API error:", error);
     res.status(500).json({ error: error.message });
@@ -444,173 +366,3 @@ exports.getresionsale = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-
-
-
-
-
-
-
-// exports.getresionsale = async (req, res) => {
-//   try {
-//     const { sku, filterType = "6months", fromDate, toDate, state, city } = req.query;
-
-//     const today = new Date();
-//     let currentStartDate, currentEndDate, previousStartDate, previousEndDate;
-//     const query = {};
-
-//     const setStartOfDay = date => new Date(date.setHours(0, 0, 0, 0));
-//     const setEndOfDay = date => new Date(date.setHours(23, 59, 59, 999));
-
-//     switch (filterType) {
-//       case "today":
-//         currentStartDate = setStartOfDay(new Date(today));
-//         currentEndDate = setEndOfDay(new Date(today));
-//         previousStartDate = new Date(currentStartDate);
-//         previousStartDate.setDate(previousStartDate.getDate() - 1);
-//         previousEndDate = setEndOfDay(new Date(previousStartDate));
-//         break;
-
-//       case "week":
-//         const day = today.getDay();
-//         currentStartDate = setStartOfDay(new Date(today.setDate(today.getDate() - day)));
-//         currentEndDate = setEndOfDay(new Date());
-//         const prevWeekStart = new Date(currentStartDate);
-//         prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-//         previousStartDate = setStartOfDay(prevWeekStart);
-//         previousEndDate = setEndOfDay(new Date(prevWeekStart.getTime() + (6 * 24 * 60 * 60 * 1000))); // +6 days
-//         break;
-
-//       case "lastmonth":
-//         const currentMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-//         currentStartDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-//         currentEndDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59, 999);
-//         previousStartDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-//         previousEndDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0, 23, 59, 59, 999);
-//         break;
-
-//       case "year":
-//         currentStartDate = new Date(today.getFullYear(), 0, 1);
-//         currentEndDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-//         previousStartDate = new Date(today.getFullYear() - 1, 0, 1);
-//         previousEndDate = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-//         break;
-
-//       case "custom":
-//         if (fromDate && toDate) {
-//           currentStartDate = new Date(fromDate);
-//           currentEndDate = new Date(toDate);
-//           const diffInMs = currentEndDate - currentStartDate;
-//           previousEndDate = new Date(currentStartDate.getTime() - 1);
-//           previousStartDate = new Date(previousEndDate.getTime() - diffInMs);
-//         }
-//         break;
-
-//       case "6months":
-//       default:
-//         currentStartDate = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-//         currentEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-//         previousStartDate = new Date(today.getFullYear(), today.getMonth() - 11, 1);
-//         previousEndDate = new Date(today.getFullYear(), today.getMonth() - 6 + 1, 0, 23, 59, 59, 999);
-//         break;
-//     }
-
-//     if (sku) query.SKU = { $in: sku.split(",").map(s => s.trim()) };
-//     if (state) query.state = state;
-//     if (city) query.city = city;
-
-//     // Fetch current records
-//     const currentRecords = await SalesRecord.find({
-//       ...query,
-//       purchaseDate: { $gte: currentStartDate, $lte: currentEndDate }
-//     });
-
-//     if (!currentRecords.length) {
-//       return res.status(404).json({ message: "No records found for selected range." });
-//     }
-
-//     let breakdown = {};
-//     let totalQuantity = 0;
-//     let totalSales = 0;
-
-//     currentRecords.forEach(record => {
-//       const date = new Date(record.purchaseDate);
-//       let key;
-
-//       if (filterType === "today" || filterType === "week") {
-//         key = date.toISOString().split('T')[0]; // e.g., 2025-05-07
-//       } else {
-//         key = date.toLocaleString('default', { month: 'long', year: 'numeric' }); // e.g., May 2025
-//       }
-
-//       const quantity = Number(record.quantity) || 0;
-//       const sales = Number(record.totalSales) || 0;
-
-//       totalQuantity += quantity;
-//       totalSales += sales;
-
-//       if (!breakdown[key]) {
-//         breakdown[key] = {
-//           date: key,
-//           totalQuantity: 0,
-//           totalSales: 0
-//         };
-//       }
-
-//       breakdown[key].totalQuantity += quantity;
-//       breakdown[key].totalSales += sales;
-//     });
-
-//     let result = {
-//       totalQuantity,
-//       totalSales,
-//       breakdown: Object.values(breakdown).sort((a, b) => {
-//         const aDate = new Date(a.date);
-//         const bDate = new Date(b.date);
-//         return aDate - bDate;
-//       })
-//     };
-
-//     // Comparison logic
-//     if (previousStartDate && previousEndDate) {
-//       const previousRecords = await SalesRecord.find({
-//         ...query,
-//         purchaseDate: { $gte: previousStartDate, $lte: previousEndDate }
-//       });
-
-//       let prevTotalQuantity = 0;
-//       let prevTotalSales = 0;
-
-//       previousRecords.forEach(record => {
-//         prevTotalQuantity += Number(record.quantity) || 0;
-//         prevTotalSales += Number(record.totalSales) || 0;
-//       });
-
-//       const quantityDiff = totalQuantity - prevTotalQuantity;
-//       const salesDiff = totalSales - prevTotalSales;
-
-//       const quantityChangePercent = prevTotalQuantity
-//         ? ((quantityDiff / prevTotalQuantity) * 100).toFixed(2)
-//         : "100";
-//       const salesChangePercent = prevTotalSales
-//         ? ((salesDiff / prevTotalSales) * 100).toFixed(2)
-//         : "100";
-
-//       result.comparison = {
-//         previousTotalQuantity: prevTotalQuantity,
-//         previousTotalSales: prevTotalSales,
-//         quantityChangePercent: `${Math.abs(quantityChangePercent)}% ${quantityDiff >= 0 ? 'Profit' : 'Loss'}`,
-//         salesChangePercent: `${Math.abs(salesChangePercent)}% ${salesDiff >= 0 ? 'Profit' : 'Loss'}`
-//       };
-//     }
-
-//     res.json(result);
-
-//   } catch (error) {
-//     console.error("API error:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
