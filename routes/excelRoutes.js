@@ -242,17 +242,84 @@ router.post('/upload-pnlll', upload.single('file'), async (req, res) => {
   }
 });
 
-// Get data with optional SKU and exact Year-Month
+
+// router.get('/pnl-data', async (req, res) => {
+//   try {
+//     const { sku, date, category } = req.query;
+//     const filter = {};
+
+//     if (sku && sku.trim() !== '') {
+//       filter.SKU = sku; // Do NOT convert to Number
+//     }
+//     if (date && date.trim() !== '') {
+//       filter['Year-Month'] = date;
+//     }
+//     if (category && category.trim() !== '') {
+//       filter['Product Category'] = category;
+//     }
+
+//     const data = await Pnl.find(filter);
+//     res.status(200).json(data);
+//   } catch (error) {
+//     console.error('Error fetching PNL data:', error);
+//     res.status(500).json({ message: 'Failed to retrieve PNL data', error });
+//   }
+// });
+
+
+
+// for finance screen sku lavel
+
+
 router.get('/pnl-data', async (req, res) => {
   try {
-    const { sku, date } = req.query;
+    const { sku, category, date, range, startMonth, endMonth } = req.query;
     const filter = {};
 
-    if (sku != null && sku !== '') {
-      filter.SKU = Number(sku);
+    if (sku && sku.trim() !== '') {
+      filter.SKU = sku;
     }
-    if (date != null && date !== '') {
+
+    if (category && category.trim() !== '') {
+      filter['Product Category'] = category;
+    }
+
+    // Handle specific month
+    if (date && date.trim() !== '') {
       filter['Year-Month'] = date;
+    }
+
+    // Handle predefined range types
+    if (range) {
+      const currentDate = moment();
+      if (range === 'monthtodate') {
+        filter['Year-Month'] = currentDate.format('YYYY-MM');
+      } else if (range === 'lastmonth') {
+        const lastMonth = currentDate.subtract(1, 'month').format('YYYY-MM');
+        filter['Year-Month'] = lastMonth;
+      } else if (range === 'yeartodate') {
+        const months = [];
+        const year = currentDate.year();
+        const currentMonth = currentDate.month() + 1; // month() is 0-indexed
+        for (let m = 1; m <= currentMonth; m++) {
+          months.push(`${year}-${m.toString().padStart(2, '0')}`);
+        }
+        filter['Year-Month'] = { $in: months };
+      }
+    }
+
+    // Handle custom range
+    if (startMonth && endMonth) {
+      const start = moment(startMonth, 'YYYY-MM');
+      const end = moment(endMonth, 'YYYY-MM');
+      const monthsInRange = [];
+
+      while (start.isSameOrBefore(end)) {
+        monthsInRange.push(start.format('YYYY-MM'));
+        start.add(1, 'month');
+      }
+
+      filter['Year-Month'] = { $in: monthsInRange };
     }
 
     const data = await Pnl.find(filter);
@@ -263,8 +330,95 @@ router.get('/pnl-data', async (req, res) => {
   }
 });
 
+
+router.get('/sku-list', async (req, res) => {
+  try {
+    const skus = await Pnl.distinct('SKU');
+    res.status(200).json(skus);
+  } catch (error) {
+    console.error('Error fetching SKU list:', error);
+    res.status(500).json({ message: 'Failed to retrieve SKU list', error });
+  }
+});
+
+router.get('/category-list', async (req, res) => {
+  try {
+    const categories = await Pnl.distinct('Product Category');
+    res.status(200).json(categories);
+  } catch (error) {
+    console.error('Error fetching Product Category list:', error);
+    res.status(500).json({ message: 'Failed to retrieve Product Category list', error });
+  }
+});
+
+
+
+
+
+
+
 // Get data and summary for current, last, or custom month
 //const moment = require('moment'); // Ensure moment is imported
+
+// router.get('/pnl-data-cm', async (req, res) => {
+//   try {
+//     const { sku, date, startDate, endDate } = req.query;
+//     const filter = {};
+
+//     // SKU filter
+//     if (sku != null && sku !== '') {
+//       filter.SKU = Number(sku);
+//     }
+
+//     // Normalize month string (e.g. 2025-3 -> 2025-03)
+//     const normalizeMonth = (input) => {
+//       const [year, month] = input.split('-');
+//       return `${year}-${String(month).padStart(2, '0')}`;
+//     };
+
+//     let yearMonth = null;
+
+//     // If range is provided
+//     if (startDate && endDate) {
+//       const start = normalizeMonth(startDate);
+//       const end = normalizeMonth(endDate);
+//       filter['Year-Month'] = { $gte: start, $lte: end };
+//     } else if (date === 'current') {
+//       yearMonth = moment().format('YYYY-MM');
+//     } else if (date === 'last') {
+//       yearMonth = moment().subtract(1, 'months').format('YYYY-MM');
+//     } else if (date && /^\d{4}-\d{1,2}$/.test(date)) {
+//       yearMonth = normalizeMonth(date);
+//     }
+
+//     if (yearMonth) {
+//       filter['Year-Month'] = yearMonth;
+//     }
+
+//     const data = await Pnl.find(filter);
+
+//     if (!data.length) {
+//       return res.status(200).json({ message: 'No data found', summary: {} });
+//     }
+
+//     const summary = {};
+
+//     data.forEach(item => {
+//       Object.entries(item._doc).forEach(([key, value]) => {
+//         if (typeof value === 'number') {
+//           summary[key] = (summary[key] || 0) + value;
+//         }
+//       });
+//     });
+
+//     res.status(200).json({ summary });
+//   } catch (error) {
+//     console.error('Error fetching PNL summary:', error);
+//     res.status(500).json({ message: 'Failed to retrieve PNL summary', error });
+//   }
+// });
+
+
 
 router.get('/pnl-data-cm', async (req, res) => {
   try {
@@ -276,7 +430,6 @@ router.get('/pnl-data-cm', async (req, res) => {
       filter.SKU = Number(sku);
     }
 
-    // Normalize month string (e.g. 2025-3 -> 2025-03)
     const normalizeMonth = (input) => {
       const [year, month] = input.split('-');
       return `${year}-${String(month).padStart(2, '0')}`;
@@ -284,7 +437,7 @@ router.get('/pnl-data-cm', async (req, res) => {
 
     let yearMonth = null;
 
-    // If range is provided
+    // Range-based filter
     if (startDate && endDate) {
       const start = normalizeMonth(startDate);
       const end = normalizeMonth(endDate);
@@ -293,6 +446,17 @@ router.get('/pnl-data-cm', async (req, res) => {
       yearMonth = moment().format('YYYY-MM');
     } else if (date === 'last') {
       yearMonth = moment().subtract(1, 'months').format('YYYY-MM');
+    } else if (date === 'previous-year') {
+      const previousYear = moment().subtract(1, 'year').year();
+      const start = `${previousYear}-01`;
+      const end = `${previousYear}-12`;
+      filter['Year-Month'] = { $gte: start, $lte: end };
+    } else if (date === 'current-year') {
+      const currentYear = moment().year();
+      const currentMonth = moment().month() + 1; // month() is 0-based
+      const start = `${currentYear}-01`;
+      const end = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      filter['Year-Month'] = { $gte: start, $lte: end };
     } else if (date && /^\d{4}-\d{1,2}$/.test(date)) {
       yearMonth = normalizeMonth(date);
     }
@@ -308,7 +472,6 @@ router.get('/pnl-data-cm', async (req, res) => {
     }
 
     const summary = {};
-
     data.forEach(item => {
       Object.entries(item._doc).forEach(([key, value]) => {
         if (typeof value === 'number') {

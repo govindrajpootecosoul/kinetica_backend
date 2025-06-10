@@ -36,7 +36,7 @@ exports.uploadExcel = async (req, res) => {
         orderStatus: row["order-status"],
         SKU: row["SKU"],
         asin: row["asin"],
-        productName: row["product-name"],
+        productName: row["Product Name"],
         quantity: Number(row["Quantity"]),
         totalSales: Number(row["Total_Sales"]),
         currency: row["currency"],
@@ -172,6 +172,7 @@ exports.getSales = async (req, res) => {
           city: record.city,
           state: record.state,
           country: record.country
+        
         };
       }
 
@@ -184,7 +185,12 @@ exports.getSales = async (req, res) => {
     console.error("API error:", error);
     res.status(500).json({ error: error.message });
   }
-};
+}; 
+
+
+
+
+
 
 
 
@@ -193,8 +199,6 @@ exports.getSales = async (req, res) => {
 
 /// for sales resion wise list  and executive list
 //complete executive screen api
-
-
 
 
 
@@ -210,81 +214,68 @@ exports.getresionsale = async (req, res) => {
     const setEndOfDay = date => new Date(date.setHours(23, 59, 59, 999));
     const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
 
-    let currentStartDate, currentEndDate, previousStartDate, previousEndDate;
+    let currentStartDate, currentEndDate;
 
     switch (filterType) {
       case "today":
         currentStartDate = setStartOfDay(new Date(today));
         currentEndDate = setEndOfDay(new Date(today));
-        previousStartDate = setStartOfDay(addDays(currentStartDate, -1));
-        previousEndDate = setEndOfDay(previousStartDate);
         break;
 
       case "week":
         const dayOfWeek = today.getDay();
         currentStartDate = setStartOfDay(addDays(today, -dayOfWeek));
         currentEndDate = setEndOfDay(new Date());
-        previousStartDate = setStartOfDay(addDays(currentStartDate, -7));
-        previousEndDate = setEndOfDay(addDays(previousStartDate, 6));
         break;
 
       case "lastmonth":
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         currentStartDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
         currentEndDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0, 23, 59, 59, 999);
-        previousStartDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth() - 1, 1);
-        previousEndDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 0, 23, 59, 59, 999);
         break;
 
       case "year":
         currentStartDate = new Date(today.getFullYear(), 0, 1);
         currentEndDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-        previousStartDate = new Date(today.getFullYear() - 1, 0, 1);
-        previousEndDate = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
         break;
 
       case "custom":
         if (fromDate && toDate) {
-          currentStartDate = new Date(fromDate);
-          currentEndDate = new Date(toDate);
-          const diff = currentEndDate - currentStartDate;
-          previousEndDate = new Date(currentStartDate.getTime() - 1);
-          previousStartDate = new Date(previousEndDate.getTime() - diff);
+          const [fromYear, fromMonth] = fromDate.split("-").map(Number);
+          const [toYear, toMonth] = toDate.split("-").map(Number);
+          currentStartDate = new Date(fromYear, fromMonth - 1, 1);
+          currentEndDate = new Date(toYear, toMonth, 0, 23, 59, 59, 999);
         } else {
-          return res.status(400).json({ error: "Custom range requires both fromDate and toDate" });
+          return res.status(400).json({ error: "Custom range requires both fromDate and toDate in YYYY-MM format" });
         }
         break;
 
       case "last30days":
         currentStartDate = setStartOfDay(addDays(today, -29));
         currentEndDate = setEndOfDay(today);
-        previousStartDate = setStartOfDay(addDays(currentStartDate, -30));
-        previousEndDate = setEndOfDay(addDays(currentStartDate, -1));
         break;
 
       case "monthtodate":
         currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
         currentEndDate = setEndOfDay(today);
-        const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-        previousStartDate = new Date(prevMonthEnd.getFullYear(), prevMonthEnd.getMonth(), 1);
-        previousEndDate = setEndOfDay(prevMonthEnd);
         break;
 
       case "yeartodate":
         currentStartDate = new Date(today.getFullYear(), 0, 1);
         currentEndDate = setEndOfDay(today);
-        previousStartDate = new Date(today.getFullYear() - 1, 0, 1);
-        previousEndDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate(), 23, 59, 59, 999);
         break;
 
       case "6months":
       default:
         currentStartDate = new Date(today.getFullYear(), today.getMonth() - 5, 1);
         currentEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-        previousStartDate = new Date(today.getFullYear(), today.getMonth() - 11, 1);
-        previousEndDate = new Date(today.getFullYear(), today.getMonth() - 6 + 1, 0, 23, 59, 59, 999);
         break;
     }
+
+    // Previous period calculation
+    let previousEndDate = new Date(currentStartDate.getTime() - 1);
+    let duration = (currentEndDate - currentStartDate) / (1000 * 60 * 60 * 24) - 1;
+    let previousStartDate = new Date(previousEndDate.getTime() - (duration - 1) * 86400000);
 
     if (sku) query.SKU = { $in: sku.split(",").map(s => s.trim()) };
     if (state) query.state = state;
@@ -299,65 +290,123 @@ exports.getresionsale = async (req, res) => {
       return res.status(404).json({ message: "No records found for selected range." });
     }
 
-    let breakdown = {}, totalQuantity = 0, totalSales = 0;
+    let breakdown = {}, totalQuantity = 0, totalSales = 0, totalOrders = 0, totalAdSales = 0;
+    let orderIdsSet = new Set(); // ✅ For unique orderIds
 
     currentRecords.forEach(record => {
       const date = new Date(record.purchaseDate);
-      if (date < currentStartDate || date > currentEndDate) return; // ✅ Safety check
+      if (date < currentStartDate || date > currentEndDate) return;
 
-      const key = ["today", "week", "last30days", "monthtodate", "yeartodate"].includes(filterType)
-        ? date.toISOString().split('T')[0]
-        : date.toLocaleString('default', { month: 'long', year: 'numeric' });
-
+      const key = date.toISOString().split('T')[0];
       const quantity = Number(record.quantity) || 0;
       const sales = Number(record.totalSales) || 0;
+      const orderCount = Number(record.orderCount) || 0;
+      const adSales = Number(record.adSales) || 0;
+      const orderId = record.orderId;
+
+      if (orderId) orderIdsSet.add(orderId); // ✅ Track unique orderIds
 
       totalQuantity += quantity;
       totalSales += sales;
+      totalOrders += orderCount;
+      totalAdSales += adSales;
 
       if (!breakdown[key]) {
-        breakdown[key] = { date: key, totalQuantity: 0, totalSales: 0 };
+        breakdown[key] = {
+          date: key,
+          totalQuantity: 0,
+          totalSales: 0,
+          orderCount: 0,
+          adSales: 0,
+          organicSales: 0
+        };
       }
 
       breakdown[key].totalQuantity += quantity;
       breakdown[key].totalSales += sales;
+      breakdown[key].orderCount += orderCount;
+      breakdown[key].adSales += adSales;
+      breakdown[key].organicSales += (sales - adSales);
     });
 
     const result = {
       totalQuantity,
       totalSales,
-      breakdown: Object.values(breakdown).sort((a, b) => {
-        return Date.parse(a.date) - Date.parse(b.date);
-      })
+      totalUniqueOrders: orderIdsSet.size, // ✅ Add total unique orders
+      breakdown: Object.values(breakdown).sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
     };
 
-    if (previousStartDate && previousEndDate) {
-      const previousRecords = await SalesRecord.find({
-        ...query,
-        purchaseDate: { $gte: previousStartDate, $lte: previousEndDate }
-      });
+    // 🔄 Previous period comparison
+    const previousRecords = await SalesRecord.find({
+      ...query,
+      purchaseDate: { $gte: previousStartDate, $lte: previousEndDate }
+    });
 
-      let prevTotalQuantity = 0, prevTotalSales = 0;
+    let prevTotalQuantity = 0, prevTotalSales = 0, prevTotalOrders = 0, prevAdSales = 0;
+    let prevOrderIdsSet = new Set(); // ✅ For unique orderIds (previous)
 
-      previousRecords.forEach(record => {
-        prevTotalQuantity += Number(record.quantity) || 0;
-        prevTotalSales += Number(record.totalSales) || 0;
-      });
+    previousRecords.forEach(record => {
+      const quantity = Number(record.quantity) || 0;
+      const sales = Number(record.totalSales) || 0;
+      const orderCount = Number(record.orderCount) || 0;
+      const adSales = Number(record.adSales) || 0;
+      const orderId = record.orderId;
 
-      const quantityDiff = totalQuantity - prevTotalQuantity;
-      const salesDiff = totalSales - prevTotalSales;
+      if (orderId) prevOrderIdsSet.add(orderId); // ✅ Track previous unique orderIds
 
-      result.comparison = {
-        previousTotalQuantity: prevTotalQuantity,
-        previousTotalSales: prevTotalSales,
-        quantityChangePercent: `${Math.abs(
-          prevTotalQuantity ? ((quantityDiff / prevTotalQuantity) * 100).toFixed(2) : 100
-        )}% ${quantityDiff >= 0 ? 'Profit' : 'Loss'}`,
-        salesChangePercent: `${Math.abs(
-          prevTotalSales ? ((salesDiff / prevTotalSales) * 100).toFixed(2) : 100
-        )}% ${salesDiff >= 0 ? 'Profit' : 'Loss'}`
-      };
-    }
+      prevTotalQuantity += quantity;
+      prevTotalSales += sales;
+      prevTotalOrders += orderCount;
+      prevAdSales += adSales;
+    });
+
+    const quantityDiff = totalQuantity - prevTotalQuantity;
+    const salesDiff = totalSales - prevTotalSales;
+    const currentAOV = totalOrders ? totalSales / totalOrders : 0;
+    const previousAOV = prevTotalOrders ? prevTotalSales / prevTotalOrders : 0;
+    const aovDiff = currentAOV - previousAOV;
+    const currentOrganicSales = totalSales - totalAdSales;
+    const previousOrganicSales = prevTotalSales - prevAdSales;
+    const organicDiff = currentOrganicSales - previousOrganicSales;
+
+    result.comparison = {
+      currentPeriod: {
+        startDate: currentStartDate.toISOString().split('T')[0],
+        endDate: currentEndDate.toISOString().split('T')[0],
+      },
+      previousPeriod: {
+        startDate: previousStartDate.toISOString().split('T')[0],
+        endDate: previousEndDate.toISOString().split('T')[0],
+      },
+      previousTotalQuantity: prevTotalQuantity,
+      previousTotalSales: prevTotalSales,
+      previousTotalUniqueOrders: prevOrderIdsSet.size, // ✅
+      quantityChangePercent: `${Math.abs(
+        prevTotalQuantity ? ((quantityDiff / prevTotalQuantity) * 100).toFixed(2) : 100
+      )}% ${quantityDiff >= 0 ? 'Profit' : 'Loss'}`,
+      salesChangePercent: `${Math.abs(
+        prevTotalSales ? ((salesDiff / prevTotalSales) * 100).toFixed(2) : 100
+      )}% ${salesDiff >= 0 ? 'Profit' : 'Loss'}`,
+      aovChangePercent: `${Math.abs(
+        previousAOV ? ((aovDiff / previousAOV) * 100).toFixed(2) : 100
+      )}% ${aovDiff >= 0 ? 'Profit' : 'Loss'}`,
+      organicSalesChangePercent: `${Math.abs(
+        previousOrganicSales ? ((organicDiff / previousOrganicSales) * 100).toFixed(2) : 100
+      )}% ${organicDiff >= 0 ? 'Profit' : 'Loss'}`,
+      uniqueOrdersChangePercent: `${Math.abs(
+        prevOrderIdsSet.size ? (((orderIdsSet.size - prevOrderIdsSet.size) / prevOrderIdsSet.size) * 100).toFixed(2) : 100
+      )}% ${orderIdsSet.size >= prevOrderIdsSet.size ? 'Profit' : 'Loss'}`
+    };
+
+
+        const currentAOVQty = totalQuantity ? totalSales / totalQuantity : 0;
+    const previousAOVQty = prevTotalQuantity ? prevTotalSales / prevTotalQuantity : 0;
+    const aovQtyDiff = currentAOVQty - previousAOVQty;
+
+    result.comparison.aovChangePercentQty = `${Math.abs(
+      previousAOVQty ? ((aovQtyDiff / previousAOVQty) * 100).toFixed(2) : 100
+    )}% ${aovQtyDiff >= 0 ? 'Profit' : 'Loss'}`;
+
 
     res.json(result);
 
@@ -365,4 +414,4 @@ exports.getresionsale = async (req, res) => {
     console.error("API error:", error);
     res.status(500).json({ error: error.message });
   }
-};
+}; 

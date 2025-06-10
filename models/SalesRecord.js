@@ -21,7 +21,7 @@ const SalesRecordSchema = new mongoose.Schema({
   pincodeY: String,
   city: String,
   state: String,
-  country: String
+  country: String,
 });
 
 module.exports = mongoose.model("SalesRecord", SalesRecordSchema);

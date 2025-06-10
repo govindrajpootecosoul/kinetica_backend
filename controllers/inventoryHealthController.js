@@ -59,6 +59,8 @@ exports.uploadInventoryHealth = async (req, res) => {
       estimated_cost_savings_of_recommended_actions: Number(row["estimated-cost-savings-of-recommended-actions"] || 0),
       estimated_ais_331_365_days: Number(row["estimated-ais-331-365-days"] || 0),
       estimated_ais_365_plus_days: Number(row["estimated-ais-365-plus-days"] || 0),
+      Sale_Lost: Number(row["Sale_Lost"] || 0),
+
     }));
 
     // Clear old data
@@ -213,3 +215,83 @@ exports.getWHStockSumByCategory = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+//under stock top list 
+exports.getTopUnderstockSKUsByDOS = async (req, res) => {
+  try {
+    const result = await InventoryHealth.aggregate([
+      {
+        $match: {
+          Stock_Status: { $regex: /^understock$/i },
+          days_of_supply: { $gt: 0 } // Exclude zero
+        }
+      },
+      {
+        $sort: {
+          days_of_supply: 1 // Ascending = lowest first
+        }
+      },
+      {
+        $skip: 1 // ✅ Skip the first lowest
+      },
+      {
+        $limit: 5
+      },
+      {
+        $project: {
+          _id: 0,
+          SKU: 1,
+          "Product Name": 1,
+          "Product Category": 1,
+          days_of_supply: 1,
+          Stock_Status: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+//top overstock 
+exports.getTopOverstockSKUsByDOS = async (req, res) => {
+  try {
+    const result = await InventoryHealth.aggregate([
+      {
+        $match: {
+          Stock_Status: { $regex: /^overstock$/i }
+        }
+      },
+      {
+        $sort: {
+          days_of_supply: -1
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          SKU: 1,
+          "Product Name": 1,
+          "Product Category": 1,
+          days_of_supply: 1,
+          Stock_Status: 1
+        }
+      },
+      {
+        $limit: 10
+      }
+    ]);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+

@@ -110,6 +110,7 @@ const inventoryHealthSchema = new mongoose.Schema({
   estimated_cost_savings_of_recommended_actions: Number,
   estimated_ais_331_365_days: Number,
   estimated_ais_365_plus_days: Number,
+  Sale_Lost: Number,
 });
 
 module.exports = mongoose.model("InventoryHealth", inventoryHealthSchema);

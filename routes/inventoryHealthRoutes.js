@@ -7,10 +7,14 @@ const {
   uploadInventoryHealth,
   getInventoryHealth,
   getWHStockSumByCategory,
+  getTopUnderstockSKUsByDOS,
+  getTopOverstockSKUsByDOS,
 } = require("../controllers/inventoryHealthController");
 
 router.post("/upload", upload.single("file"), uploadInventoryHealth);
 router.get("/", getInventoryHealth);
 router.get("/productcategorysum", getWHStockSumByCategory);
+router.get("/productunders", getTopUnderstockSKUsByDOS);
+router.get("/productoversku", getTopOverstockSKUsByDOS);
 
 module.exports = router;
