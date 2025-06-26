@@ -10,6 +10,7 @@ const SalesRecordSchema = new mongoose.Schema({
   SKU: String,
   asin: String,
   productName: String,
+  productCategory: String,
   quantity: Number,
   totalSales: Number,
   currency: String,

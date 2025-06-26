@@ -17,12 +17,14 @@ mongoose.connect(MONGO_URI)
 
 app.use("/api/sales", require("./routes/salesRoutes"));
 app.use("/api/inventory", require("./routes/inventoryHealthRoutes"));
-//make a upload api data upload from sheets eg. excel sheet in node js from postman
-//get data from data base and pass params date today thisweek last30days eg(13may 13 april) monthtodate eg 1 may to cutrrent last6months yeartodate 1 jan to current and customedate range optional sku main logic is if user pass any date than show sum of Ad_Sales according to range and Ad_Spend and if passed sku than match sku and sho data 
 
 app.use(express.json());
 app.use('/api',require("./routes/skuuploadRoute.js"));
 app.use('/api',require("./routes/skucityRoute"));
+
+app.use('/api', require('./routes/subscribeSaveRoutes'));
+app.use('/api/data', require('./routes/combinedCatalogueRoutes'));
+
 
 //app.use('/api',skucityRoute);
 //router.get('/summary', adDataController.getAdData);

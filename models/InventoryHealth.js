@@ -81,6 +81,7 @@ const inventoryHealthSchema = new mongoose.Schema({
   FC_Processing: Number,
   days_of_supply: Number,
   Days_In_Stock: Number,
+  Days_Out_Of_Stock: Number,
   Total_Days: Number,
   InStock_Rate: Number,
   InStock_Rate_Percent: Number,
@@ -111,6 +112,9 @@ const inventoryHealthSchema = new mongoose.Schema({
   estimated_ais_331_365_days: Number,
   estimated_ais_365_plus_days: Number,
   Sale_Lost: Number,
+  Inbound_receiving_quantity: Number,
+  DOS_2: Number,
+  Sell_thru: Number,
 });
 
 module.exports = mongoose.model("InventoryHealth", inventoryHealthSchema);

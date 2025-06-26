@@ -487,6 +487,295 @@ router.get('/pnl-data-cm', async (req, res) => {
   }
 });
 
+//working code 
+// router.get('/pnl-data-cmm', async (req, res) => {
+//   try {
+//     const { sku, date, startDate, endDate } = req.query;
+//     const filter = {};
+//     const prevFilter = {};
+
+//     const normalizeMonth = (input) => {
+//       const [year, month] = input.split('-');
+//       return `${year}-${String(month).padStart(2, '0')}`;
+//     };
+
+//     let yearMonth = null;
+//     let prevYearMonth = null;
+
+//     const now = moment().utc();
+
+//     if (sku != null && sku !== '') {
+//       filter.SKU = Number(sku);
+//       prevFilter.SKU = Number(sku);
+//     }
+
+//     if (startDate && endDate) {
+//       const start = normalizeMonth(startDate);
+//       const end = normalizeMonth(endDate);
+//       filter['Year-Month'] = { $gte: start, $lte: end };
+
+//       const startMoment = moment(start).subtract(end.split('-')[1], 'months');
+//       const endMoment = moment(start).subtract(1, 'months');
+//       prevFilter['Year-Month'] = {
+//         $gte: startMoment.format('YYYY-MM'),
+//         $lte: endMoment.format('YYYY-MM')
+//       };
+//     } else if (date === 'monthtodate') {
+//       yearMonth = now.format('YYYY-MM');
+//       filter['Year-Month'] = yearMonth;
+//       prevYearMonth = now.clone().subtract(1, 'months').format('YYYY-MM');
+//       prevFilter['Year-Month'] = prevYearMonth;
+//     } else if (date === 'lastmonth') {
+//       yearMonth = now.clone().subtract(1, 'months').format('YYYY-MM');
+//       filter['Year-Month'] = yearMonth;
+//       prevYearMonth = now.clone().subtract(2, 'months').format('YYYY-MM');
+//       prevFilter['Year-Month'] = prevYearMonth;
+//     } else if (date === 'previous-year') {
+//       const previousYear = now.clone().subtract(1, 'year').year();
+//       const start = `${previousYear}-01`;
+//       const end = `${previousYear}-12`;
+//       filter['Year-Month'] = { $gte: start, $lte: end };
+
+//       const startPrev = `${previousYear - 1}-01`;
+//       const endPrev = `${previousYear - 1}-12`;
+//       prevFilter['Year-Month'] = { $gte: startPrev, $lte: endPrev };
+//     } else if (date === 'current-year') {
+//       const currentYear = now.year();
+//       const currentMonth = now.month() + 1;
+//       const start = `${currentYear}-01`;
+//       const end = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+//       filter['Year-Month'] = { $gte: start, $lte: end };
+
+//       const startPrev = `${currentYear - 1}-01`;
+//       const endPrev = `${currentYear - 1}-${String(currentMonth).padStart(2, '0')}`;
+//       prevFilter['Year-Month'] = { $gte: startPrev, $lte: endPrev };
+//     } else if (date && /^\d{4}-\d{1,2}$/.test(date)) {
+//       yearMonth = normalizeMonth(date);
+//       filter['Year-Month'] = yearMonth;
+//       prevYearMonth = moment(yearMonth).subtract(1, 'months').format('YYYY-MM');
+//       prevFilter['Year-Month'] = prevYearMonth;
+//     }
+
+//     const currentData = await Pnl.find(filter);
+//     const previousData = await Pnl.find(prevFilter);
+
+//     const summarize = (data) => {
+//       const summary = {};
+//       data.forEach(item => {
+//         Object.entries(item._doc).forEach(([key, value]) => {
+//           if (typeof value === 'number') {
+//             summary[key] = (summary[key] || 0) + value;
+//           }
+//         });
+//       });
+//       return summary;
+//     };
+
+//     const currentSummary = summarize(currentData);
+//     const previousSummary = summarize(previousData);
+
+//     const percentChange = (current, previous) => {
+//       if (previous === 0) return current === 0 ? 0 : 100;
+//       return ((current - previous) / previous) * 100;
+//     };
+
+//     const cm1 = currentSummary['CM1'] || 0;
+//     const cm2 = currentSummary['CM2'] || 0;
+//     const cm3 = currentSummary['CM3'] || 0;
+
+//     const prevCm1 = previousSummary['CM1'] || 0;
+//     const prevCm2 = previousSummary['CM2'] || 0;
+//     const prevCm3 = previousSummary['CM3'] || 0;
+
+//     const cm1Change = percentChange(cm1, prevCm1);
+//     const cm2Change = percentChange(cm2, prevCm2);
+//     const cm3Change = percentChange(cm3, prevCm3);
+
+//     return res.status(200).json({
+//       summary: currentSummary,
+//       previousSummary,
+//       cmChange: {
+//         CM1: cm1.toFixed(2),
+//         CM1_ChangePercent: cm1Change.toFixed(2),
+//         CM2: cm2.toFixed(2),
+//         CM2_ChangePercent: cm2Change.toFixed(2),
+//         CM3: cm3.toFixed(2),
+//         CM3_ChangePercent: cm3Change.toFixed(2)
+//       }
+//     });
+//   } catch (error) {
+//     console.error('❌ Error fetching PNL summary:', error.message || error, error.stack);
+//     return res.status(500).json({
+//       message: 'Failed to retrieve PNL summary',
+//       error: error.message || 'Unknown error'
+//     });
+//   }
+// });
+
+
+router.get('/pnl-data-cmm', async (req, res) => {
+  try {
+    const { sku, date, startDate, endDate } = req.query;
+    const filter = {};
+    const moment = require('moment');
+
+    if (sku != null && sku !== '') {
+      filter.SKU = Number(sku);
+    }
+
+    const normalizeMonth = (input) => {
+      const [year, month] = input.split('-');
+      return `${year}-${String(month).padStart(2, '0')}`;
+    };
+
+    const now = moment().utc();
+    let yearMonth = null;
+
+    if (startDate && endDate) {
+      const start = normalizeMonth(startDate);
+      const end = normalizeMonth(endDate);
+      filter['Year-Month'] = { $gte: start, $lte: end };
+    } else if (date === 'monthtodate') {
+      yearMonth = now.format('YYYY-MM');
+    } else if (date === 'lastmonth') {
+      yearMonth = now.clone().subtract(1, 'months').format('YYYY-MM');
+    } else if (date === 'previous-year') {
+      const prevYear = now.clone().subtract(1, 'year').year();
+      filter['Year-Month'] = { $gte: `${prevYear}-01`, $lte: `${prevYear}-12` };
+    } else if (date === 'current-year') {
+      const currentYear = now.year();
+      const currentMonth = now.month() + 1;
+      filter['Year-Month'] = {
+        $gte: `${currentYear}-01`,
+        $lte: `${currentYear}-${String(currentMonth).padStart(2, '0')}`,
+      };
+    } else if (date && /^\d{4}-\d{1,2}$/.test(date)) {
+      yearMonth = normalizeMonth(date);
+    }
+
+    if (yearMonth) {
+      filter['Year-Month'] = yearMonth;
+    }
+
+    const currentData = await Pnl.find(filter);
+    if (!currentData.length) {
+      return res.status(200).json({ message: 'No data found', summary: {}, cmPercentages: {} });
+    }
+
+    const summarize = (data) => {
+      const result = {};
+      data.forEach(item => {
+        Object.entries(item._doc).forEach(([key, value]) => {
+          if (typeof value === 'number') {
+            result[key] = (result[key] || 0) + value;
+          }
+        });
+      });
+      return result;
+    };
+
+    const summary = summarize(currentData);
+
+    const getPreviousPeriodFilter = () => {
+      if (startDate && endDate) {
+        const prevStart = moment(startDate, 'YYYY-MM').subtract(2, 'months');
+        const prevEnd = moment(endDate, 'YYYY-MM').subtract(2, 'months');
+        return {
+          ...sku ? { SKU: Number(sku) } : {},
+          'Year-Month': {
+            $gte: prevStart.format('YYYY-MM'),
+            $lte: prevEnd.format('YYYY-MM')
+          }
+        };
+      }
+      if (date === 'monthtodate') {
+        const currentDay = now.date();
+        const prevMonth = now.clone().subtract(1, 'month');
+        const prevStart = prevMonth.clone().startOf('month');
+        const prevEnd = prevMonth.clone().startOf('month').add(currentDay - 1, 'days');
+        return {
+          ...sku ? { SKU: Number(sku) } : {},
+          'Year-Month': { $gte: prevStart.format('YYYY-MM'), $lte: prevEnd.format('YYYY-MM') }
+        };
+      }
+      if (date === 'lastmonth') {
+        const prev = now.clone().subtract(2, 'month').format('YYYY-MM');
+        return { ...sku ? { SKU: Number(sku) } : {}, 'Year-Month': prev };
+      }
+      if (date === 'current-year') {
+        const lastYear = now.clone().subtract(1, 'year').year();
+        return {
+          ...sku ? { SKU: Number(sku) } : {},
+          'Year-Month': { $gte: `${lastYear}-01`, $lte: `${lastYear}-12` }
+        };
+      }
+      if (date === 'previous-year') {
+        const twoYearsAgo = now.clone().subtract(2, 'year').year();
+        return {
+          ...sku ? { SKU: Number(sku) } : {},
+          'Year-Month': { $gte: `${twoYearsAgo}-01`, $lte: `${twoYearsAgo}-12` }
+        };
+      }
+      return {};
+    };
+
+    const previousFilter = getPreviousPeriodFilter();
+    const previousData = await Pnl.find(previousFilter);
+    const previousSummary = summarize(previousData);
+
+    const safeDivide = (num, den) => den !== 0 ? (num / den) * 100 : 0;
+    const percentChange = (curr, prev) => {
+      if (prev === 0) return curr === 0 ? 0 : 100;
+      return ((curr - prev) / Math.abs(prev)) * 100;
+    };
+
+    const CM1 = summary['CM1'] || 0;
+    const CM2 = summary['CM2'] || 0;
+    const CM3 = summary['CM3'] || 0;
+    const totalSalesTax = summary['Total Sales with tax'] || 0;
+
+    const CM1_prev = previousSummary['CM1'] || 0;
+    const CM2_prev = previousSummary['CM2'] || 0;
+    const CM3_prev = previousSummary['CM3'] || 0;
+    const totalSalesTax_prev = previousSummary['Total Sales with tax'] || 0;
+
+    return res.status(200).json({
+      summary,
+      previousSummary,
+      cmPercentages: {
+        CM1: CM1.toFixed(2),
+        CM1_Percent: safeDivide(CM1, totalSalesTax).toFixed(2),
+        CM1_ChangePercent: percentChange(CM1, CM1_prev).toFixed(2),
+
+        CM2: CM2.toFixed(2),
+        CM2_Percent: safeDivide(CM2, totalSalesTax).toFixed(2),
+        CM2_ChangePercent: percentChange(CM2, CM2_prev).toFixed(2),
+
+        CM3: CM3.toFixed(2),
+        CM3_Percent: safeDivide(CM3, totalSalesTax).toFixed(2),
+        CM3_ChangePercent: percentChange(CM3, CM3_prev).toFixed(2)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in /pnl-data-cmm:', error);
+    return res.status(500).json({
+      message: 'Failed to retrieve PNL summary',
+      error: error.message || 'Unknown error'
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+module.exports = router;
+
 
 
 // Get data with SKU, exact date or date range (startDate-endDate)

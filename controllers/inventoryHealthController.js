@@ -30,6 +30,7 @@ exports.uploadInventoryHealth = async (req, res) => {
       FC_Processing: Number(row["FC_Processing"] || 0),
       days_of_supply: Number(row["days-of-supply"] || 0),
       Days_In_Stock: Number(row["Days_In_Stock"] || 0),
+      Days_Out_Of_Stock: Number(row["Days_Out_Of_Stock"] || 0),
       Total_Days: Number(row["Total_Days"] || 0),
       InStock_Rate: Number(row["InStock_Rate"] || 0),
       InStock_Rate_Percent: Number(row["InStock_Rate_Percent"] || 0),
@@ -60,7 +61,9 @@ exports.uploadInventoryHealth = async (req, res) => {
       estimated_ais_331_365_days: Number(row["estimated-ais-331-365-days"] || 0),
       estimated_ais_365_plus_days: Number(row["estimated-ais-365-plus-days"] || 0),
       Sale_Lost: Number(row["Sale_Lost"] || 0),
-
+      Inbound_receiving_quantity: Number(row["afn-inbound-receiving-quantity"] || 0),
+      DOS_2: Number(row["DOS_2"] || 0),
+      Sell_thru: Number(row["Sell_thru"] || 0),
     }));
 
     // Clear old data
@@ -178,13 +181,38 @@ function formatDate(excelDate) {
   }
 }
 
+// exports.getInventoryHealth = async (req, res) => {
+//   try {
+//     const { sku } = req.query;
+//     const filter = {};
+
+//     if (sku) {
+//       filter.SKU = sku;
+//     }
+
+//     const data = await InventoryHealth.find(filter);
+//     res.json(data);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 exports.getInventoryHealth = async (req, res) => {
   try {
-    const { sku } = req.query;
+    const { sku, productName, productCategory } = req.query;
     const filter = {};
 
     if (sku) {
       filter.SKU = sku;
+    }
+
+    if (productName) {
+      filter.Product_Name = productName;
+    }
+
+    if (productCategory) {
+      filter.Product_Category = productCategory;
     }
 
     const data = await InventoryHealth.find(filter);
@@ -193,6 +221,29 @@ exports.getInventoryHealth = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+exports.getProductCategories = async (req, res) => {
+  try {
+    const categories = await InventoryHealth.distinct("Product_Category");
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getProductNames = async (req, res) => {
+  try {
+    const names = await InventoryHealth.distinct("Product_Name");
+    res.json(names);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+
 
 //const InventoryHealth = require("../models/InventoryHealth");
 
@@ -225,27 +276,30 @@ exports.getTopUnderstockSKUsByDOS = async (req, res) => {
       {
         $match: {
           Stock_Status: { $regex: /^understock$/i },
-          days_of_supply: { $gt: 0 } // Exclude zero
+          DOS_2: { $gt: 0 } 
+          // Exclude zero
         }
       },
       {
         $sort: {
-          days_of_supply: 1 // Ascending = lowest first
+          DOS_2: 1 // Ascending = lowest first
         }
       },
       {
         $skip: 1 // ✅ Skip the first lowest
       },
-      {
-        $limit: 5
-      },
+      // {
+      //   $limit: 5
+      // },
       {
         $project: {
           _id: 0,
           SKU: 1,
-          "Product Name": 1,
-          "Product Category": 1,
-          days_of_supply: 1,
+          Product_Name: 1,
+          Product_Category: 1,
+          afn_warehouse_quantity: 1,
+          afn_fulfillable_quantity: 1,
+          DOS_2: 1,
           Stock_Status: 1
         }
       }
@@ -264,27 +318,141 @@ exports.getTopOverstockSKUsByDOS = async (req, res) => {
     const result = await InventoryHealth.aggregate([
       {
         $match: {
-          Stock_Status: { $regex: /^overstock$/i }
+          Stock_Status: { $regex: /^overstock$/i },
+         
         }
       },
       {
         $sort: {
-          days_of_supply: -1
+          DOS_2: -1
         }
       },
       {
         $project: {
           _id: 0,
           SKU: 1,
-          "Product Name": 1,
-          "Product Category": 1,
-          days_of_supply: 1,
+          Product_Name: 1,
+          Product_Category: 1,
+          afn_warehouse_quantity: 1,
+          afn_fulfillable_quantity: 1,
+          DOS_2: 1,
           Stock_Status: 1
         }
       },
+      // {
+      //   $limit: 10
+      // }
+    ]);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+//out of stock 
+// exports.getActiveOOSSKUs = async (req, res) => {
+//   try {
+//     const result = await InventoryHealth.aggregate([
+//       {
+//         $match: {
+//          // Stock_Status: { $regex: /^active$/i },
+//           afn_warehouse_quantity: 0
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           SKU: 1,
+//           Product_Category: 1,
+//           Product_Name: 1,
+//           afn_warehouse_quantity: 1,
+//           afn_fulfillable_quantity: 1,
+//           Days_Out_Of_Stock: 1 // Only if this field exists in your documents
+//         }
+//       }
+//     ]);
+
+//     res.status(200).json(result);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+exports.getActiveOOSSKUs = async (req, res) => {
+  try {
+    const result = await InventoryHealth.aggregate([
       {
-        $limit: 10
+        $match: {
+          Stock_Status: { $in: ['Understock', 'Active'] }, // include both
+          afn_fulfillable_quantity: { $eq: 0 },
+         
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          SKU: 1,
+          Product_Category: 1,
+          Product_Name: 1,
+          afn_fulfillable_quantity: 1,
+          afn_warehouse_quantity: 1,
+          Stock_Status: 1,
+          Days_Out_Of_Stock: 1
+        }
+      },
+      {
+        $sort: { Days_Out_Of_Stock: -1 }
       }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching out-of-stock SKUs",
+      error: error.message
+    });
+  }
+};
+
+
+exports.getTopunder_SKU = async (req, res) => {
+  try {
+    const result = await InventoryHealth.aggregate([
+      {
+        $match: {
+          Stock_Status: { $regex: /^understock$/i },
+         
+        }
+      },
+      {
+        $sort: {
+          DOS_2: -1
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          SKU: 1,
+          Product_Name: 1,
+          Product_Category: 1,
+          afn_warehouse_quantity: 1,
+          afn_fulfillable_quantity: 1,
+          DOS_2: 1,
+          Stock_Status: 1
+        }
+      },
+      // {
+      //   $limit: 10
+      // }
     ]);
 
     res.status(200).json(result);
