@@ -300,7 +300,8 @@ exports.getTopUnderstockSKUsByDOS = async (req, res) => {
           afn_warehouse_quantity: 1,
           afn_fulfillable_quantity: 1,
           DOS_2: 1,
-          Stock_Status: 1
+          Stock_Status: 1,
+
         }
       }
     ]);
@@ -313,13 +314,49 @@ exports.getTopUnderstockSKUsByDOS = async (req, res) => {
 
 
 //top overstock 
+// exports.getTopOverstockSKUsByDOS = async (req, res) => {
+//   try {
+//     const result = await InventoryHealth.aggregate([
+//       {
+//         $match: {
+//           Stock_Status: { $regex: /^overstock$/i },
+         
+//         }
+//       },
+//       {
+//         $sort: {
+//           DOS_2: -1
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           SKU: 1,
+//           Product_Name: 1,
+//           Product_Category: 1,
+//           afn_warehouse_quantity: 1,
+//           afn_fulfillable_quantity: 1,
+//           DOS_2: 1,
+//           Stock_Status: 1
+//         }
+//       },
+//       // {
+//       //   $limit: 10
+//       // }
+//     ]);
+
+//     res.status(200).json(result);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 exports.getTopOverstockSKUsByDOS = async (req, res) => {
   try {
     const result = await InventoryHealth.aggregate([
       {
         $match: {
           Stock_Status: { $regex: /^overstock$/i },
-         
+          DOS_2: { $gte: 90 } // Only include where DOS_2 is 90 or higher
         }
       },
       {
@@ -336,12 +373,14 @@ exports.getTopOverstockSKUsByDOS = async (req, res) => {
           afn_warehouse_quantity: 1,
           afn_fulfillable_quantity: 1,
           DOS_2: 1,
-          Stock_Status: 1
+          Stock_Status: 1,
+           Sell_thru: 1,
+          MTQ_overstock: 1,
+          MTQ_understock: 1
         }
-      },
-      // {
-      //   $limit: 10
-      // }
+      }
+      // Uncomment if you want to limit the top results
+      // { $limit: 10 }
     ]);
 
     res.status(200).json(result);
@@ -349,6 +388,7 @@ exports.getTopOverstockSKUsByDOS = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 //out of stock 
@@ -381,14 +421,56 @@ exports.getTopOverstockSKUsByDOS = async (req, res) => {
 // };
 
 
+// exports.getActiveOOSSKUs = async (req, res) => {
+//   try {
+//     const result = await InventoryHealth.aggregate([
+//       {
+//         $match: {
+//           Stock_Status: { $in: ['Understock', 'Active'] }, // include both
+//           afn_fulfillable_quantity: { $eq: 0 },
+         
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           SKU: 1,
+//           Product_Category: 1,
+//           Product_Name: 1,
+//           afn_fulfillable_quantity: 1,
+//           afn_warehouse_quantity: 1,
+//           Stock_Status: 1,
+//           Days_Out_Of_Stock: 1
+//         }
+//       },
+//       {
+//         $sort: { Days_Out_Of_Stock: -1 }
+//       }
+//     ]);
+
+//     res.status(200).json({
+//       success: true,
+//       count: result.length,
+//       data: result
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error while fetching out-of-stock SKUs",
+//       error: error.message
+//     });
+//   }
+// };
+
+
 exports.getActiveOOSSKUs = async (req, res) => {
   try {
     const result = await InventoryHealth.aggregate([
       {
         $match: {
-          Stock_Status: { $in: ['Understock', 'Active'] }, // include both
+          Stock_Status: { $in: ['Understock', 'Active'] },
           afn_fulfillable_quantity: { $eq: 0 },
-         
         }
       },
       {
@@ -400,7 +482,10 @@ exports.getActiveOOSSKUs = async (req, res) => {
           afn_fulfillable_quantity: 1,
           afn_warehouse_quantity: 1,
           Stock_Status: 1,
-          Days_Out_Of_Stock: 1
+          Days_Out_Of_Stock: 1,
+           Sell_thru: 1,
+          MTQ_overstock: 1,
+          MTQ_understock: 1
         }
       },
       {
@@ -408,11 +493,8 @@ exports.getActiveOOSSKUs = async (req, res) => {
       }
     ]);
 
-    res.status(200).json({
-      success: true,
-      count: result.length,
-      data: result
-    });
+    // 👉 Send only the raw array
+    res.status(200).json(result);
 
   } catch (error) {
     res.status(500).json({
@@ -424,18 +506,54 @@ exports.getActiveOOSSKUs = async (req, res) => {
 };
 
 
+
+
+// exports.getTopunder_SKU = async (req, res) => {
+//   try {
+//     const result = await InventoryHealth.aggregate([
+//       {
+//         $match: {
+//           Stock_Status: { $regex: /^understock$/i },
+//          DOS_2: { $eq: 0 },
+//         }
+//       },
+//       // {
+//       //   $sort: {
+//       //     DOS_2: -1
+//       //   }
+//       // },
+//       {
+//         $project: {
+//           _id: 0,
+//           SKU: 1,
+//           Product_Name: 1,
+//           Product_Category: 1,
+//           afn_warehouse_quantity: 1,
+//           afn_fulfillable_quantity: 1,
+//           DOS_2: 1,
+//           Stock_Status: 1
+//         }
+//       },
+//       // {
+//       //   $limit: 10
+//       // }
+//     ]);
+
+//     res.status(200).json(result);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+
 exports.getTopunder_SKU = async (req, res) => {
   try {
     const result = await InventoryHealth.aggregate([
       {
         $match: {
           Stock_Status: { $regex: /^understock$/i },
-         
-        }
-      },
-      {
-        $sort: {
-          DOS_2: -1
+          DOS_2: { $lte: 30 } // excludes values greater than 30
         }
       },
       {
@@ -447,12 +565,15 @@ exports.getTopunder_SKU = async (req, res) => {
           afn_warehouse_quantity: 1,
           afn_fulfillable_quantity: 1,
           DOS_2: 1,
-          Stock_Status: 1
+          Stock_Status: 1,
+           Sell_thru: 1,
+          MTQ_overstock: 1,
+          MTQ_understock: 1
         }
       },
-      // {
-      //   $limit: 10
-      // }
+      {
+        $sort: { DOS_2: 1 } // Optional: sort by lowest DOS_2 first
+      }
     ]);
 
     res.status(200).json(result);
@@ -460,6 +581,7 @@ exports.getTopunder_SKU = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 

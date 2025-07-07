@@ -23,6 +23,7 @@ router.get("/productname", getProductNames);
 router.get("/productcategory", getProductCategories);
 router.get("/productcategorysum", getWHStockSumByCategory);
 router.get("/productunders", getTopUnderstockSKUsByDOS);
+
 router.get("/productoversku", getTopOverstockSKUsByDOS);
 router.get("/out_of_stock_sku", getActiveOOSSKUs);
 router.get("/understock_skulist", getTopunder_SKU);

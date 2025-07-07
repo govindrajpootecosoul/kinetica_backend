@@ -243,37 +243,9 @@ router.post('/upload-pnlll', upload.single('file'), async (req, res) => {
 });
 
 
-// router.get('/pnl-data', async (req, res) => {
-//   try {
-//     const { sku, date, category } = req.query;
-//     const filter = {};
-
-//     if (sku && sku.trim() !== '') {
-//       filter.SKU = sku; // Do NOT convert to Number
-//     }
-//     if (date && date.trim() !== '') {
-//       filter['Year-Month'] = date;
-//     }
-//     if (category && category.trim() !== '') {
-//       filter['Product Category'] = category;
-//     }
-
-//     const data = await Pnl.find(filter);
-//     res.status(200).json(data);
-//   } catch (error) {
-//     console.error('Error fetching PNL data:', error);
-//     res.status(500).json({ message: 'Failed to retrieve PNL data', error });
-//   }
-// });
-
-
-
-// for finance screen sku lavel
-
-
 router.get('/pnl-data', async (req, res) => {
   try {
-    const { sku, category, date, range, startMonth, endMonth } = req.query;
+    const { sku, category, date, range, startMonth, endMonth, productName } = req.query;
     const filter = {};
 
     if (sku && sku.trim() !== '') {
@@ -282,6 +254,10 @@ router.get('/pnl-data', async (req, res) => {
 
     if (category && category.trim() !== '') {
       filter['Product Category'] = category;
+    }
+
+    if (productName && productName.trim() !== '') {
+      filter['Product Name'] = productName;
     }
 
     // Handle specific month
@@ -329,6 +305,94 @@ router.get('/pnl-data', async (req, res) => {
     res.status(500).json({ message: 'Failed to retrieve PNL data', error });
   }
 });
+
+
+// router.get('/pnl-data', async (req, res) => {
+//   try {
+//     const { sku, date, category } = req.query;
+//     const filter = {};
+
+//     if (sku && sku.trim() !== '') {
+//       filter.SKU = sku; // Do NOT convert to Number
+//     }
+//     if (date && date.trim() !== '') {
+//       filter['Year-Month'] = date;
+//     }
+//     if (category && category.trim() !== '') {
+//       filter['Product Category'] = category;
+//     }
+
+//     const data = await Pnl.find(filter);
+//     res.status(200).json(data);
+//   } catch (error) {
+//     console.error('Error fetching PNL data:', error);
+//     res.status(500).json({ message: 'Failed to retrieve PNL data', error });
+//   }
+// });
+
+
+
+// for finance screen sku lavel
+
+
+// router.get('/pnl-data', async (req, res) => {
+//   try {
+//     const { sku, category, date, range, startMonth, endMonth } = req.query;
+//     const filter = {};
+
+//     if (sku && sku.trim() !== '') {
+//       filter.SKU = sku;
+//     }
+
+//     if (category && category.trim() !== '') {
+//       filter['Product Category'] = category;
+//     }
+
+//     // Handle specific month
+//     if (date && date.trim() !== '') {
+//       filter['Year-Month'] = date;
+//     }
+
+//     // Handle predefined range types
+//     if (range) {
+//       const currentDate = moment();
+//       if (range === 'monthtodate') {
+//         filter['Year-Month'] = currentDate.format('YYYY-MM');
+//       } else if (range === 'lastmonth') {
+//         const lastMonth = currentDate.subtract(1, 'month').format('YYYY-MM');
+//         filter['Year-Month'] = lastMonth;
+//       } else if (range === 'yeartodate') {
+//         const months = [];
+//         const year = currentDate.year();
+//         const currentMonth = currentDate.month() + 1; // month() is 0-indexed
+//         for (let m = 1; m <= currentMonth; m++) {
+//           months.push(`${year}-${m.toString().padStart(2, '0')}`);
+//         }
+//         filter['Year-Month'] = { $in: months };
+//       }
+//     }
+
+//     // Handle custom range
+//     if (startMonth && endMonth) {
+//       const start = moment(startMonth, 'YYYY-MM');
+//       const end = moment(endMonth, 'YYYY-MM');
+//       const monthsInRange = [];
+
+//       while (start.isSameOrBefore(end)) {
+//         monthsInRange.push(start.format('YYYY-MM'));
+//         start.add(1, 'month');
+//       }
+
+//       filter['Year-Month'] = { $in: monthsInRange };
+//     }
+
+//     const data = await Pnl.find(filter);
+//     res.status(200).json(data);
+//   } catch (error) {
+//     console.error('Error fetching PNL data:', error);
+//     res.status(500).json({ message: 'Failed to retrieve PNL data', error });
+//   }
+// });
 
 
 router.get('/sku-list', async (req, res) => {
@@ -732,12 +796,12 @@ router.get('/pnl-data-cmm', async (req, res) => {
     const CM1 = summary['CM1'] || 0;
     const CM2 = summary['CM2'] || 0;
     const CM3 = summary['CM3'] || 0;
-    const totalSalesTax = summary['Total Sales with tax'] || 0;
+    const totalSalesTax = summary['Net Sales with tax'] || 0;
 
     const CM1_prev = previousSummary['CM1'] || 0;
     const CM2_prev = previousSummary['CM2'] || 0;
     const CM3_prev = previousSummary['CM3'] || 0;
-    const totalSalesTax_prev = previousSummary['Total Sales with tax'] || 0;
+    const totalSalesTax_prev = previousSummary['Net Sales with tax'] || 0;
 
     return res.status(200).json({
       summary,

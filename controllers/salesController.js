@@ -3,6 +3,67 @@ const xlsx = require("xlsx");
 const SalesRecord = require("../models/SalesRecord");
 const fs = require("fs");
 
+// exports.uploadExcel = async (req, res) => {
+//   try {
+//     const file = req.file.path;
+//     const workbook = xlsx.readFile(file);
+//     const sheetName = workbook.SheetNames[0];
+//     const sheet = workbook.Sheets[sheetName];
+//     const data = xlsx.utils.sheet_to_json(sheet);
+
+//     const formattedData = data.map(row => {
+//       // Convert 'purchase-date' to YYYY-MM-DD format as a string
+//       let purchaseDate = row["purchase-date"];
+
+//       if (purchaseDate) {
+//         // If purchaseDate is a number (Excel stores dates as numbers)
+//         if (typeof purchaseDate === 'number') {
+//           const dateObj = new Date((purchaseDate - (25567 + 2)) * 86400 * 1000);  // Convert Excel date to JS Date
+//           purchaseDate = dateObj.toISOString().slice(0, 10); // Extract YYYY-MM-DD from ISO string
+//         } else {
+//           const dateObj = new Date(purchaseDate);
+//           if (!isNaN(dateObj.getTime())) {
+//             purchaseDate = dateObj.toISOString().slice(0, 10); // Extract YYYY-MM-DD from ISO string
+//           } else {
+//             purchaseDate = null; // If invalid date, set to null
+//           }
+//         }
+//       }
+
+//       return {
+//         orderID: row["Order_ID"],
+//         purchaseDate: purchaseDate, // Save the date as a string in YYYY-MM-DD format
+//         orderStatus: row["order-status"],
+//         SKU: row["SKU"],
+//         asin: row["asin"],
+//         productName: row["Product Name"],
+//         productCategory: row["Product Category"],
+//         quantity: Number(row["Quantity"]),
+//         totalSales: Number(row["Total_Sales"]),
+//         currency: row["currency"],
+//         monthYear: row["Month-Year"],
+//         pincodeNew: row["Pincode_new"],
+//         averageUnitPriceAmount: Number(row["averageUnitPriceAmount"]),
+//         cityX: row["City_x"],
+//         stateX: row["State_x"],
+//         pincodeY: row["Pincode_y"],
+//         city: row["City"],
+//         state: row["State"],
+//         country: row["Country"]
+//       };
+//     });
+
+//     // Insert the data into the database
+//     await SalesRecord.insertMany(formattedData);
+//     fs.unlinkSync(file);
+
+//     res.status(200).json({ message: "Excel data uploaded successfully!" });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 exports.uploadExcel = async (req, res) => {
   try {
     const file = req.file.path;
@@ -12,48 +73,42 @@ exports.uploadExcel = async (req, res) => {
     const data = xlsx.utils.sheet_to_json(sheet);
 
     const formattedData = data.map(row => {
-      // Convert 'purchase-date' to YYYY-MM-DD format as a string
-      let purchaseDate = row["purchase-date"];
+      const obj = {};
 
-      if (purchaseDate) {
-        // If purchaseDate is a number (Excel stores dates as numbers)
+      // Handle 'purchase-date' separately if present
+      if ("purchase-date" in row) {
+        let purchaseDate = row["purchase-date"];
         if (typeof purchaseDate === 'number') {
-          const dateObj = new Date((purchaseDate - (25567 + 2)) * 86400 * 1000);  // Convert Excel date to JS Date
-          purchaseDate = dateObj.toISOString().slice(0, 10); // Extract YYYY-MM-DD from ISO string
+          const dateObj = new Date((purchaseDate - (25567 + 2)) * 86400 * 1000);
+          obj.purchaseDate = dateObj.toISOString().slice(0, 10);
         } else {
           const dateObj = new Date(purchaseDate);
-          if (!isNaN(dateObj.getTime())) {
-            purchaseDate = dateObj.toISOString().slice(0, 10); // Extract YYYY-MM-DD from ISO string
-          } else {
-            purchaseDate = null; // If invalid date, set to null
-          }
+          obj.purchaseDate = !isNaN(dateObj.getTime()) ? dateObj.toISOString().slice(0, 10) : null;
         }
       }
 
-      return {
-        orderID: row["Order_ID"],
-        purchaseDate: purchaseDate, // Save the date as a string in YYYY-MM-DD format
-        orderStatus: row["order-status"],
-        SKU: row["SKU"],
-        asin: row["asin"],
-        productName: row["Product Name"],
-        productCategory: row["Product Category"],
-        quantity: Number(row["Quantity"]),
-        totalSales: Number(row["Total_Sales"]),
-        currency: row["currency"],
-        monthYear: row["Month-Year"],
-        pincodeNew: row["Pincode_new"],
-        averageUnitPriceAmount: Number(row["averageUnitPriceAmount"]),
-        cityX: row["City_x"],
-        stateX: row["State_x"],
-        pincodeY: row["Pincode_y"],
-        city: row["City"],
-        state: row["State"],
-        country: row["Country"]
-      };
+      if ("Order_ID" in row) obj.orderID = row["Order_ID"];
+      if ("order-status" in row) obj.orderStatus = row["order-status"];
+      if ("SKU" in row) obj.SKU = row["SKU"];
+      if ("asin" in row) obj.asin = row["asin"];
+      if ("Product Name" in row) obj.productName = row["Product Name"];
+      if ("Product Category" in row) obj.productCategory = row["Product Category"];
+      if ("Quantity" in row) obj.quantity = Number(row["Quantity"]);
+      if ("Total_Sales" in row) obj.totalSales = Number(row["Total_Sales"]);
+      if ("currency" in row) obj.currency = row["currency"];
+      if ("Month-Year" in row) obj.monthYear = row["Month-Year"];
+      if ("Pincode_new" in row) obj.pincodeNew = row["Pincode_new"];
+      if ("averageUnitPriceAmount" in row) obj.averageUnitPriceAmount = Number(row["averageUnitPriceAmount"]);
+      if ("City_x" in row) obj.cityX = row["City_x"];
+      if ("State_x" in row) obj.stateX = row["State_x"];
+      if ("Pincode_y" in row) obj.pincodeY = row["Pincode_y"];
+      if ("City" in row) obj.city = row["City"];
+      if ("State" in row) obj.state = row["State"];
+      if ("Country" in row) obj.country = row["Country"];
+
+      return obj;
     });
 
-    // Insert the data into the database
     await SalesRecord.insertMany(formattedData);
     fs.unlinkSync(file);
 
@@ -62,7 +117,6 @@ exports.uploadExcel = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 
 
